@@ -6,7 +6,7 @@
     <div class="row mt-5">
         <div class="col-12 text-center">
             <div class="input-group mb-3">
-                <input type="text" id="keyword" value="밴드골드" class="form-control" placeholder="검색키워드를 입력해주세요." aria-label="Recipient's username"
+                <input type="text" id="keyword" value="" class="form-control" placeholder="검색키워드를 입력해주세요." aria-label="Recipient's username"
                        aria-describedby="button-addon2">
                 <div class="input-group-append">
                     <button id="btn_search" class="btn btn-outline-secondary" type="button" >실행</button>
@@ -79,6 +79,11 @@
                     dataType: "json",
                     success: function (result) {
                        console.log(result);
+                        if (result.success) {
+                            alert('crawling the end');
+                        } else {
+                            alert('happen error');
+                        }
                     }
                 });
 

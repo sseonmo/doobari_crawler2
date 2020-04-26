@@ -56,31 +56,6 @@ def crawling_shop(browser, id, pwd, keyword):
 		browser.find_element_by_xpath('//*[@id="total-search-frm"]/div/div/div/button').click()
 		sub_url = 'http://www.shop.co.kr/ajax/goodsDtail.do'
 
-	# iframes = browser.find_elements_by_tag_name('iframe')
-	# for i, iframe in enumerate(iframes):
-	# 	try:
-	# 		print('%d번째 iframe 입니다.' % i)
-	#
-	# 		# i 번째 iframe으로 변경합니다.
-	# 		browser.switch_to_frame(iframes[i])
-	#
-	# 		# 변경한 iframe 안의 소스를 확인합니다.
-	# 		print(browser.page_source)
-	#
-	# 		# # ifm
-	# 		# / html / body / div[2] / div[2] / iframe
-	# 		# 원래 frame으로 돌아옵니다.
-	# 		browser.switch_to_default_content()
-	# 	except:
-	# 		# exception이 발생했다면 원래 frame으로 돌아옵니다.
-	# 		browser.switch_to_default_content()
-	#
-	# 		# 몇 번째 frame에서 에러가 났었는지 확인합니다.
-	# 		print('pass by except : iframes[%d]' % i)
-	#
-	# 		# 다음 for문으로 넘어갑니다.
-	# 		pass
-
 
 	# 테이블 가격표 노출될때까지 대기
 	# WebDriverWait(browser, 20) \
@@ -182,15 +157,24 @@ def crawling_shop1(browser, id, pwd, keyword):
 			# company = tds[0].find('input').text.strip()
 			# if company == '':
 			company = tds[0].text.strip()
+
+			if company == "":
+				continue
 			try:
 				price = '0' if tds[1].text.strip() == '' or tds[1].text.strip() == '-' else tds[1].text.strip().replace(',', '')
 			except Exception:
 				price = '0'
 
+			if price == '0':
+				continue
+
 			try:
 				discount_price = '0' if tds[2].text.strip() == '' else tds[2].text.strip().replace(',', '')
 			except Exception:
 				discount_price = '0'
+
+
+
 			print("{} / {} / {} / {} / {}".format(product_name, product_price, company, price, discount_price))
 
 			uniq_key = key.join(company)
@@ -220,7 +204,6 @@ def shop_requests(url, keyword, product_key, browser):
 def get_broser():
 	chrome_options = Options()
 	# chrome_options.add_argument("--headless")
-	print()
 	driver_path = path.join(path.dirname(path.abspath(__file__)), '..', 'webdriver', 'chromedriver')
 	return webdriver.Chrome(
 		executable_path=driver_path,
