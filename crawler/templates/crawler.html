@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block contents %}
+    <div class="row mt-5">
+        <h2 ><a href="/admin" target="_blank">두발이에 사치스러운 크롤링</a></h2>
+    </div>
+    <div class="row mt-5">
+        <div class="col-12 text-center">
+            <div class="input-group mb-3">
+                <input type="text" id="keyword" value="밴드골드" class="form-control" placeholder="검색키워드를 입력해주세요." aria-label="Recipient's username"
+                       aria-describedby="button-addon2">
+                <div class="input-group-append">
+                    <button id="btn_search" class="btn btn-outline-secondary" type="button" >실행</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row mt-5">
+        <table id="crawl_table" class="table">
+            <thead class="thead-dark">
+            <tr>
+                <th>##</th>
+                <th>사이트</th>
+                <th>아이디</th>
+                <th>패스워드</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><input type="checkbox" name="sitecheck" checked ></td>
+                <td>http://www.shop.co.kr</td>
+                <td>dandw123</td>
+                <td>dandw123</td>
+            </tr>
+            <tr>
+                <td><input type="checkbox" name="sitecheck" checked ></td>
+                <td>http://www.shop.co.kr</td>
+                <td>jaeback</td>
+                <td>jack58</td>
+            </tr>
+            <tr>
+                <td>
+{#                    <input type="checkbox" name="sitecheck" checked >#}
+                </td>
+                <td>http://www.hmpmall.co.kr</td>
+                <td>jis0980</td>
+                <td>2946aa</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+{% endblock %}
+{% block header %}
+    <script>
+        console.log("@@");
+        $(document).ready(function () {
+            $('#btn_search').on('click', function (e) {
+                e.preventDefault();
+
+                const params = {};
+                let keyword = $('#keyword').val().trim() || '';
+                if(!keyword)
+                    return;
+
+                if($("input[name='sitecheck']:checked").length === 0)
+                    return;
+
+                let siteinfos = [];
+                $('#crawl_table > tbody > tr').each(function (idx, item) {
+                    console.log($(item).children('td').eq(0).html());
+                    if ($(item).children('td').eq(0).find('input:checkbox').is(":checked")) {
+                        siteinfos.push($(item).children('td').eq(1).text()+","+$(item).children('td').eq(2).text()+","+$(item).children('td').eq(3).text()+","+keyword);
+                    }
+                });
+
+                $.ajax({
+                    url: "{% url 'crawling' %}",
+                    type: "GET",
+                    data: {siteinfos},
+                    dataType: "json",
+                    success: function (result) {
+                       console.log(result);
+                    }
+                });
+
+
+
+
+
+
+            })
+        });
+    </script>
+{% endblock %}

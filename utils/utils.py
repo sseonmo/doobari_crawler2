@@ -1,0 +1,232 @@
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+import os.path as path
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from time import sleep
+
+# bs4 임포트
+from bs4 import BeautifulSoup
+import requests
+
+def crawling(site, id, pwd, keyword):
+	result = dict()
+
+	browser = get_broser()
+	# 크롬 브라우저 내부 대기
+	browser.implicitly_wait(5)
+	# 페이지 이동
+	browser.get(site)
+
+	if site == 'http://www.shop.co.kr':
+		if id == 'dandw123':
+			result = crawling_shop(browser, id, pwd, keyword)
+		else:
+			result = crawling_shop1(browser, id, pwd, keyword)
+
+
+	browser.close()
+	return result
+
+def crawling_shop(browser, id, pwd, keyword):
+	"""
+	http://www.shop.co.kr
+	"""
+	sub_url = 'http://www.shop.co.kr/hos/ajax/goodsDtail.do'
+
+	# id, password 입력
+	browser.find_element_by_id('userId').send_keys(id)
+	browser.find_element_by_id('userPwd').send_keys(pwd)
+	browser.find_element_by_xpath('//*[@id="btn-login"]').click()
+
+	# 검색어 입력 후 버튼 클릭
+	if id == 'dandw123':
+		WebDriverWait(browser, 30) \
+			.until(EC.presence_of_element_located((By.XPATH, '//*[@id="autoCompleteText"]'))).click()
+		browser.find_element_by_xpath('//*[@id="autoCompleteText"]').click()
+		browser.find_element_by_xpath('//*[@id="autoCompleteText"]').send_keys(keyword)
+		browser.find_element_by_xpath('//*[@id="topSearchForm"]/div[2]/div/button').click()
+	else:
+		WebDriverWait(browser, 30) \
+			.until(EC.presence_of_element_located((By.XPATH, '//*[@id="total-search-val"]'))).click()
+		browser.find_element_by_xpath('//*[@id="total-search-val"]').click()
+		browser.find_element_by_xpath('//*[@id="total-search-val"]').send_keys(keyword)
+		browser.find_element_by_xpath('//*[@id="total-search-frm"]/div/div/div/button').click()
+		sub_url = 'http://www.shop.co.kr/ajax/goodsDtail.do'
+
+	# iframes = browser.find_elements_by_tag_name('iframe')
+	# for i, iframe in enumerate(iframes):
+	# 	try:
+	# 		print('%d번째 iframe 입니다.' % i)
+	#
+	# 		# i 번째 iframe으로 변경합니다.
+	# 		browser.switch_to_frame(iframes[i])
+	#
+	# 		# 변경한 iframe 안의 소스를 확인합니다.
+	# 		print(browser.page_source)
+	#
+	# 		# # ifm
+	# 		# / html / body / div[2] / div[2] / iframe
+	# 		# 원래 frame으로 돌아옵니다.
+	# 		browser.switch_to_default_content()
+	# 	except:
+	# 		# exception이 발생했다면 원래 frame으로 돌아옵니다.
+	# 		browser.switch_to_default_content()
+	#
+	# 		# 몇 번째 frame에서 에러가 났었는지 확인합니다.
+	# 		print('pass by except : iframes[%d]' % i)
+	#
+	# 		# 다음 for문으로 넘어갑니다.
+	# 		pass
+
+
+	# 테이블 가격표 노출될때까지 대기
+	# WebDriverWait(browser, 20) \
+	# 	.until(EC.presence_of_element_located((By.XPATH, '//*[@id="goodsDetail"]/div[1]'))).click()
+	# sleep()
+	WebDriverWait(browser, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "ifm")))
+	WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CLASS_NAME, "goobsList")))
+
+	soup = BeautifulSoup(browser.page_source, 'html.parser')
+	tr_list = soup.select('#goodsList > div:nth-child(4) > fieldset > table > tbody > tr')
+
+	# 제품명, 제품가격 수집
+	product_list = dict()
+	for tr in tr_list:
+		tds = tr.select('td')
+		key = tr.get('alt').strip()
+		product_name = tds[1].text.strip()
+		product_price = tds[4].text.strip().replace(',', '')
+		product_list[key] = [product_name, product_price]
+		print(key, product_name, product_price)
+
+	# 제품 수집후 제품별 공급사 제공 정보를 requests로 조회한다.
+	result = dict()
+	for key in product_list.keys():
+		res_text = shop_requests(sub_url, keyword, key, browser)
+		product = product_list[key]
+		product_name = product[0]
+		product_price = product[1]
+		soup = BeautifulSoup(res_text, 'html.parser')
+		tr_list = soup.select('table.tableBk > tbody > tr')
+		# tr_list = soup.select('div.products_view table.table_style5 > tbody > tr')
+
+		for tr in tr_list:
+			tds = tr.findAll('td')
+
+			# 공급사, 가격, 세일가, 재고
+			company = tds[1].text.strip()
+			# company = tds[0].find('input').text.strip()
+			price = '0' if tds[2].text.strip() == '' or tds[2].text.strip() == '-' else tds[2].text.strip().replace(',', '')
+
+			discount_price = '0'
+			if len(tds) == 5:
+				discount_price = '0' if tds[3].text.strip() == '' else tds[3].text.strip().replace(',', '')
+			print("{} / {} / {} / {}".format(product_name, product_price, company, price, discount_price))
+
+			uniq_key = key.join(company)
+			result[uniq_key] = [product_name, product_price, company, price, discount_price]
+
+		sleep(2)
+
+	return result
+
+def crawling_shop1(browser, id, pwd, keyword):
+
+	# id, password 입력
+	browser.find_element_by_id('userId').send_keys(id)
+	browser.find_element_by_id('userPwd').send_keys(pwd)
+	browser.find_element_by_xpath('//*[@id="btn-login"]').click()
+
+	# 검색어 입력 후 버튼 클릭
+	WebDriverWait(browser, 30) \
+		.until(EC.presence_of_element_located((By.XPATH, '//*[@id="total-search-val"]'))).click()
+	browser.find_element_by_xpath('//*[@id="total-search-val"]').click()
+	browser.find_element_by_xpath('//*[@id="total-search-val"]').send_keys(keyword)
+	browser.find_element_by_xpath('//*[@id="total-search-frm"]/div/div/div/button').click()
+	sub_url = 'http://www.shop.co.kr/ajax/goodsDtail.do'
+
+	# 테이블 가격표 노출될때까지 대기
+	WebDriverWait(browser, 20).until(EC.frame_to_be_available_and_switch_to_it((By.ID, "ifm")))
+	WebDriverWait(browser, 20).until(EC.presence_of_element_located((By.CLASS_NAME, "table_style4")))
+
+	soup = BeautifulSoup(browser.page_source, 'html.parser')
+	tr_list = soup.select('.table_style4 > tbody > tr')
+
+	# 제품명, 제품가격 수집
+	product_list = dict()
+	for tr in tr_list:
+		tds = tr.select('td')
+		key = tr.get('alt').strip()
+		product_name = tds[1].text.strip()
+		product_price = tds[4].text.strip().replace(',', '')
+		product_list[key] = [product_name, product_price]
+		print(key, product_name, product_price)
+
+	# 제품 수집후 제품별 공급사 제공 정보를 requests로 조회한다.
+	result = dict()
+	for key in product_list.keys():
+		res_text = shop_requests(sub_url, keyword, key, browser)
+		product = product_list[key]
+		product_name = product[0]
+		product_price = product[1]
+		soup = BeautifulSoup(res_text, 'html.parser')
+		tr_list = soup.select('table.table_style5 > tbody > tr')
+
+		for tr in tr_list:
+			tds = tr.findAll('td')
+
+			# 공급사, 가격, 세일가, 재고
+			# company = tds[0].find('input').text.strip()
+			# if company == '':
+			company = tds[0].text.strip()
+			try:
+				price = '0' if tds[1].text.strip() == '' or tds[1].text.strip() == '-' else tds[1].text.strip().replace(',', '')
+			except Exception:
+				price = '0'
+
+			try:
+				discount_price = '0' if tds[2].text.strip() == '' else tds[2].text.strip().replace(',', '')
+			except Exception:
+				discount_price = '0'
+			print("{} / {} / {} / {} / {}".format(product_name, product_price, company, price, discount_price))
+
+			uniq_key = key.join(company)
+			result[uniq_key] = [product_name, product_price, company, price, discount_price]
+
+		sleep(2)
+
+	return result
+
+def shop_requests(url, keyword, product_key, browser):
+
+	headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8', 'Accept': 'text/html'}
+	cookies = dict()
+	for cookie in browser.get_cookies():
+		cookies[cookie['name']] = cookie['value']
+
+	data = {'goodsInfoDataBean.goodsMasterCd': product_key, 'goodsInfoDataBean.monoGoodsYn': 'N',
+	        'goodsInfoDataBean.searchVal': keyword}
+
+	res = requests.post(url, data=data, headers=headers, cookies=cookies)
+
+	if res.status_code == 200:
+		return res.text
+
+	return ''
+
+def get_broser():
+	chrome_options = Options()
+	# chrome_options.add_argument("--headless")
+	print()
+	driver_path = path.join(path.dirname(path.abspath(__file__)), '..', 'webdriver', 'chromedriver')
+	return webdriver.Chrome(
+		executable_path=driver_path,
+		options=chrome_options
+	)
+
+if __name__ == '__main__':
+	# crawling('http://www.shop.co.kr', 'dandw123', 'dandw123', '밴드골드')
+	crawling('http://www.shop.co.kr', 'jaeback', 'jack58', '밴드골드')
