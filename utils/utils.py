@@ -25,7 +25,8 @@ def crawling(site, id, pwd, keyword):
 			result = crawling_shop(browser, id, pwd, keyword)
 		else:
 			result = crawling_shop1(browser, id, pwd, keyword)
-
+	elif site == 'http://www.hmpmall.co.kr':
+		result = crawling_hmpmall(browser, id, pwd, keyword)
 
 	browser.close()
 	return result
@@ -55,7 +56,6 @@ def crawling_shop(browser, id, pwd, keyword):
 		browser.find_element_by_xpath('//*[@id="total-search-val"]').send_keys(keyword)
 		browser.find_element_by_xpath('//*[@id="total-search-frm"]/div/div/div/button').click()
 		sub_url = 'http://www.shop.co.kr/ajax/goodsDtail.do'
-
 
 	# 테이블 가격표 노출될때까지 대기
 	# WebDriverWait(browser, 20) \
@@ -94,7 +94,8 @@ def crawling_shop(browser, id, pwd, keyword):
 			# 공급사, 가격, 세일가, 재고
 			company = tds[1].text.strip()
 			# company = tds[0].find('input').text.strip()
-			price = '0' if tds[2].text.strip() == '' or tds[2].text.strip() == '-' else tds[2].text.strip().replace(',', '')
+			price = '0' if tds[2].text.strip() == '' or tds[2].text.strip() == '-' else tds[2].text.strip().replace(',',
+			                                                                                                        '')
 
 			discount_price = '0'
 			if len(tds) == 5:
@@ -109,7 +110,6 @@ def crawling_shop(browser, id, pwd, keyword):
 	return result
 
 def crawling_shop1(browser, id, pwd, keyword):
-
 	# id, password 입력
 	browser.find_element_by_id('userId').send_keys(id)
 	browser.find_element_by_id('userPwd').send_keys(pwd)
@@ -155,14 +155,16 @@ def crawling_shop1(browser, id, pwd, keyword):
 
 			# 공급사, 가격, 세일가, 재고
 			# company = tds[0].find('input').text.strip()
-			# if company == '':
+			# if comlen(tds)pany == '':
 			company = tds[0].text.strip()
 
 			if company == "":
 				continue
 			try:
-				price = '0' if tds[1].text.strip() == '' or tds[1].text.strip() == '-' else tds[1].text.strip().replace(',', '')
-			except Exception:
+				price = '0' if tds[1].text.strip() == '' or tds[1].text.strip() == '-' else tds[1].text.strip().replace(
+					',', '')
+			except Exception as e:
+				print(e)
 				price = '0'
 
 			if price == '0':
@@ -172,8 +174,6 @@ def crawling_shop1(browser, id, pwd, keyword):
 				discount_price = '0' if tds[2].text.strip() == '' else tds[2].text.strip().replace(',', '')
 			except Exception:
 				discount_price = '0'
-
-
 
 			print("{} / {} / {} / {} / {}".format(product_name, product_price, company, price, discount_price))
 
@@ -185,7 +185,6 @@ def crawling_shop1(browser, id, pwd, keyword):
 	return result
 
 def shop_requests(url, keyword, product_key, browser):
-
 	headers = {'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8', 'Accept': 'text/html'}
 	cookies = dict()
 	for cookie in browser.get_cookies():
@@ -201,6 +200,50 @@ def shop_requests(url, keyword, product_key, browser):
 
 	return ''
 
+def crawling_hmpmall(browser, id, pwd, keyword):
+	# id, password 입력
+	browser.find_element_by_id('memberId').send_keys(id)
+	browser.find_element_by_id('memberPassword').send_keys(pwd)
+	browser.find_element_by_xpath('//*[@id="loginForm"]/div/div[2]/div[1]/fieldset/div/img').click()
+
+	# 검색어 입력 후 버튼 클릭
+	WebDriverWait(browser, 30) \
+		.until(EC.presence_of_element_located((By.XPATH, '//*[@id="keywordField"]'))).click()
+	browser.find_element_by_xpath('//*[@id="searchField"]').send_keys(keyword)
+	browser.find_element_by_xpath('//*[@id="searchKeywordBtn"]').click()
+
+	sleep(2)
+
+	result = dict()
+
+	for i in range(0, 9):
+		gen_id = "mainList" + str(i)
+		browser.find_element_by_xpath('//*[@id="{}"]/td[3]/a'.format(gen_id)).click()
+		WebDriverWait(browser, 30) \
+			.until(EC.presence_of_element_located((By.XPATH, '//*[@id="area_supply_detail_s"]/table[1]/thead/tr[2]')))
+		soup = BeautifulSoup(browser.page_source, "html.parser")
+
+		product_name = soup.select_one('#{} > td.al_lft.name_s'.format(gen_id)).text.strip()
+		product_price = soup.select_one('#{} > td.won.al_rgt'.format(gen_id)).text.strip().replace(',', '').replace('원',
+		                                                                                                            '')
+		trs = soup.select('div.area_supply_detail_s > table.tbl_supply > thead > tr.subListBody')
+
+		for tr in trs:
+			tds = tr.findAll('td')
+			if not tds:
+				continue
+
+			company = tds[1].text.strip()
+			price = '0' if tds[2].text.strip() == '' else tds[2].text.strip().replace(',', '')
+			discount_price = '0' if tds[3].text.strip() == '' else tds[3].text.strip().replace(',', '')
+
+			print('{} / {} / {} / {} / {}'.format(product_name, product_price, company, price, discount_price))
+			result[product_name.join(company)] = [product_name, product_price, company, price, discount_price]
+
+		sleep(1)
+
+	return result
+
 def get_broser():
 	chrome_options = Options()
 	# chrome_options.add_argument("--headless")
@@ -212,4 +255,5 @@ def get_broser():
 
 if __name__ == '__main__':
 	# crawling('http://www.shop.co.kr', 'dandw123', 'dandw123', '밴드골드')
-	crawling('http://www.shop.co.kr', 'jaeback', 'jack58', '밴드골드')
+	# crawling('http://www.shop.co.kr', 'jaeback', 'jack58', '밴드골드')
+	crawling('http://www.hmpmall.co.kr', 'jis0980', '2946aa', '밴드골드')

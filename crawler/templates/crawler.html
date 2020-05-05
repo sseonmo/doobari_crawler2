@@ -39,7 +39,7 @@
             </tr>
             <tr>
                 <td>
-{#                    <input type="checkbox" name="sitecheck" checked >#}
+                    <input type="checkbox" name="sitecheck" checked >
                 </td>
                 <td>http://www.hmpmall.co.kr</td>
                 <td>jis0980</td>
@@ -80,17 +80,12 @@
                     success: function (result) {
                        console.log(result);
                         if (result.success) {
-                            alert('crawling the end');
+                            alert('두바라의 사치스러운 크롤링이 완료되었습니다.');
                         } else {
                             alert('happen error');
                         }
                     }
                 });
-
-
-
-
-
 
             })
         });
